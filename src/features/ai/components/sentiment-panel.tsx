@@ -41,7 +41,7 @@ export function SentimentPanel({ customers }: { customers: CustomerOption[] }) {
           <Smile className="size-4" />
           AI Customer Sentiment
         </CardTitle>
-        <CardDescription>Classify the tone of a customer's notes as positive, neutral or negative.</CardDescription>
+        <CardDescription>Classify the tone of a customer&apos;s notes as positive, neutral or negative.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         {customers.length === 0 ? (

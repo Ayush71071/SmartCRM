@@ -25,8 +25,8 @@ export function AcceptInviteButton({ token }: { token: string }) {
     return (
       <>
         <CheckCircle2 className="size-10 text-success" />
-        <h1 className="text-xl font-semibold">You're in!</h1>
-        <p className="max-w-sm text-sm text-muted-foreground">You've joined the organization.</p>
+        <h1 className="text-xl font-semibold">You&apos;re in!</h1>
+        <p className="max-w-sm text-sm text-muted-foreground">You&apos;ve joined the organization.</p>
         <Button asChild>
           <Link href="/dashboard">Go to dashboard</Link>
         </Button>
@@ -38,7 +38,7 @@ export function AcceptInviteButton({ token }: { token: string }) {
     return (
       <>
         <XCircle className="size-10 text-destructive" />
-        <h1 className="text-xl font-semibold">Couldn't accept invitation</h1>
+        <h1 className="text-xl font-semibold">Couldn&apos;t accept invitation</h1>
         <p className="max-w-sm text-sm text-muted-foreground">{error}</p>
         <Button asChild variant="outline">
           <Link href="/dashboard">Go to dashboard</Link>

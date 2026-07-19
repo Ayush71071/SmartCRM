@@ -37,7 +37,7 @@ export function PlanCard({ currentPlan, canEdit }: { currentPlan: string; canEdi
     <Card>
       <CardHeader>
         <CardTitle>Plan</CardTitle>
-        <CardDescription>Your organization's subscription tier.</CardDescription>
+        <CardDescription>Your organization&apos;s subscription tier.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         <Select value={plan} onValueChange={setPlan} disabled={!canEdit}>

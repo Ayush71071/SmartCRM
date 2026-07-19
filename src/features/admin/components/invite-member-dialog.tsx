@@ -53,7 +53,7 @@ export function InviteMemberDialog({ canInviteOwner }: { canInviteOwner: boolean
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Invite a team member</DialogTitle>
-          <DialogDescription>They'll receive an email with a link to join.</DialogDescription>
+          <DialogDescription>They&apos;ll receive an email with a link to join.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">

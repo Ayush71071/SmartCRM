@@ -32,7 +32,6 @@ export function KanbanBoard({ initialColumns }: { initialColumns: Columns }) {
   // since this component doesn't remount when its props change.
   React.useEffect(() => {
     setColumns(initialColumns);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialColumns]);
   const snapshotRef = React.useRef<Columns>(initialColumns);
 

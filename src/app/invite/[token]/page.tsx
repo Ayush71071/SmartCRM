@@ -23,7 +23,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
           <Building2 className="size-10 text-brand" />
           <h1 className="text-xl font-semibold">Join {invitation.organization.name}</h1>
           <p className="max-w-sm text-sm text-muted-foreground">
-            You've been invited to join as a {invitation.role.replace("_", " ").toLowerCase()}.
+            You&apos;ve been invited to join as a {invitation.role.replace("_", " ").toLowerCase()}.
           </p>
           <AcceptInviteButton token={token} />
         </>
