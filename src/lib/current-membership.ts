@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -9,8 +10,12 @@ export const ACTIVE_ORG_COOKIE = "smartcrm_active_org";
  * Resolves the signed-in user's active Organization + Role for this request.
  * Every org-scoped query and RBAC check should go through this rather than
  * trusting a client-supplied organizationId.
+ *
+ * Wrapped in React's `cache()` for request-level memoization — both the
+ * dashboard layout and every page it wraps call this, and without memoizing
+ * it each navigation would hit the database twice for the same data.
  */
-export async function getCurrentMembership() {
+export const getCurrentMembership = cache(async () => {
   const session = await auth();
   if (!session?.user?.id) return null;
 
@@ -33,6 +38,6 @@ export async function getCurrentMembership() {
     role: active.role,
     memberships,
   };
-}
+});
 
 export type CurrentMembership = NonNullable<Awaited<ReturnType<typeof getCurrentMembership>>>;

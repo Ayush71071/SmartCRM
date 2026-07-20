@@ -18,11 +18,19 @@ import { KanbanColumn } from "@/features/leads/components/kanban-column";
 import { LeadCard } from "@/features/leads/components/lead-card";
 import { leadStageValues } from "@/features/leads/schemas/lead-schemas";
 import { moveLead } from "@/features/leads/actions/lead-actions";
-import type { BoardLead } from "@/features/leads/actions/get-board-data";
+import type { BoardLead, BoardCustomer, BoardMember } from "@/features/leads/actions/get-board-data";
 
 type Columns = Record<string, BoardLead[]>;
 
-export function KanbanBoard({ initialColumns }: { initialColumns: Columns }) {
+export function KanbanBoard({
+  initialColumns,
+  customers,
+  members,
+}: {
+  initialColumns: Columns;
+  customers: BoardCustomer[];
+  members: BoardMember[];
+}) {
   const [columns, setColumns] = React.useState<Columns>(initialColumns);
   const [activeLead, setActiveLead] = React.useState<BoardLead | null>(null);
 
@@ -110,10 +118,12 @@ export function KanbanBoard({ initialColumns }: { initialColumns: Columns }) {
     >
       <div className="flex gap-4 overflow-x-auto pb-4">
         {leadStageValues.map((stage) => (
-          <KanbanColumn key={stage} stage={stage} leads={columns[stage] ?? []} />
+          <KanbanColumn key={stage} stage={stage} leads={columns[stage] ?? []} customers={customers} members={members} />
         ))}
       </div>
-      <DragOverlay>{activeLead && <LeadCard lead={activeLead} />}</DragOverlay>
+      <DragOverlay>
+        {activeLead && <LeadCard lead={activeLead} customers={customers} members={members} />}
+      </DragOverlay>
     </DndContext>
   );
 }

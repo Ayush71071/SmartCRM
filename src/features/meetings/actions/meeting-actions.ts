@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { getCurrentMembership } from "@/lib/current-membership";
 import { logActivity } from "@/lib/activity";
 import { canManageRecord, canCreateRecords } from "@/lib/rbac";
+import { verifyMembersInOrg } from "@/lib/tenant-guard";
 import { meetingSchema, type MeetingInput } from "@/features/meetings/schemas/meeting-schemas";
 
 export type ActionResult<T = undefined> = { ok: true; data: T } | { ok: false; error: string };
@@ -21,6 +22,21 @@ function isOwner(userId: string, meeting: { createdById: string }) {
   return meeting.createdById === userId;
 }
 
+/** Verifies client-supplied customerId/attendeeUserIds references actually belong to this org. */
+async function verifyMeetingReferences(
+  organizationId: string,
+  data: Pick<MeetingInput, "customerId" | "attendeeUserIds">
+): Promise<string | null> {
+  if (data.customerId) {
+    const customer = await db.customer.findFirst({ where: { id: data.customerId, organizationId } });
+    if (!customer) return "Customer not found.";
+  }
+  if (!(await verifyMembersInOrg(organizationId, data.attendeeUserIds))) {
+    return "One or more attendees are invalid.";
+  }
+  return null;
+}
+
 export async function createMeeting(input: MeetingInput): Promise<ActionResult<{ id: string }>> {
   const membership = await getCurrentMembership();
   if (!membership) return { ok: false, error: "Not signed in." };
@@ -28,6 +44,9 @@ export async function createMeeting(input: MeetingInput): Promise<ActionResult<{
 
   const parsed = meetingSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
+
+  const referenceError = await verifyMeetingReferences(membership.organization.id, parsed.data);
+  if (referenceError) return { ok: false, error: referenceError };
 
   const externalEmails = parseExternalEmails(parsed.data.externalAttendees);
 
@@ -77,6 +96,9 @@ export async function updateMeeting(id: string, input: MeetingInput): Promise<Ac
 
   const parsed = meetingSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
+
+  const referenceError = await verifyMeetingReferences(membership.organization.id, parsed.data);
+  if (referenceError) return { ok: false, error: referenceError };
 
   const externalEmails = parseExternalEmails(parsed.data.externalAttendees);
 

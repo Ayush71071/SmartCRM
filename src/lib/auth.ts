@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { loginSchema } from "@/features/auth/schemas/auth-schemas";
 import { bootstrapOrganizationForUser } from "@/features/auth/actions/bootstrap-organization";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(db),
@@ -32,6 +33,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const parsed = loginSchema.safeParse(raw);
         if (!parsed.success) return null;
         const { email, password } = parsed.data;
+
+        // Brute-force protection: cap attempts per account and per IP.
+        const ip = await getClientIp();
+        if (!checkRateLimit(`login:email:${email}`, 5, 15 * 60 * 1000)) return null;
+        if (!checkRateLimit(`login:ip:${ip}`, 20, 15 * 60 * 1000)) return null;
 
         const user = await db.user.findUnique({ where: { email } });
         if (!user || !user.passwordHash) return null;

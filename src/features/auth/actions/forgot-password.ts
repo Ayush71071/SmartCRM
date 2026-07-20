@@ -4,21 +4,38 @@ import { randomBytes } from "crypto";
 import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/resend";
 import { forgotPasswordSchema, type ForgotPasswordInput } from "@/features/auth/schemas/auth-schemas";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
+// Floors the "email not found" path to roughly the same wall-clock time as
+// the "found" path (token creation + email send), so response timing alone
+// can't be used to enumerate which emails are registered.
+const MIN_RESPONSE_MS = 400;
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
 export async function forgotPasswordAction(input: ForgotPasswordInput): Promise<ActionResult> {
+  const started = Date.now();
   const parsed = forgotPasswordSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
   }
 
-  const user = await db.user.findUnique({ where: { email: parsed.data.email } });
+  const ip = await getClientIp();
+  // Limit both per-target (stops email-bombing one address) and per-IP
+  // (stops broad abuse/enumeration) — always return ok either way so the
+  // response itself never reveals which limit (if any) was hit.
+  const withinEmailLimit = checkRateLimit(`forgot-password:email:${parsed.data.email}`, 3, 60 * 60 * 1000);
+  const withinIpLimit = checkRateLimit(`forgot-password:ip:${ip}`, 10, 60 * 60 * 1000);
+
+  const user = withinEmailLimit && withinIpLimit ? await db.user.findUnique({ where: { email: parsed.data.email } }) : null;
 
   // Always return ok — never reveal whether an email is registered.
-  if (!user || !user.passwordHash) return { ok: true };
+  if (!user || !user.passwordHash) {
+    const elapsed = Date.now() - started;
+    if (elapsed < MIN_RESPONSE_MS) await new Promise((resolve) => setTimeout(resolve, MIN_RESPONSE_MS - elapsed));
+    return { ok: true };
+  }
 
   const token = randomBytes(32).toString("hex");
   await db.passwordResetToken.create({

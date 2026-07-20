@@ -20,11 +20,23 @@ import {
 } from "@/components/ui/sheet";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { leadSchema, leadStageValues, type LeadInput } from "@/features/leads/schemas/lead-schemas";
-import { createLead } from "@/features/leads/actions/lead-actions";
+import { createLead, updateLead } from "@/features/leads/actions/lead-actions";
 import { STAGE_CONFIG } from "@/features/leads/config/stages";
 import type { BoardCustomer, BoardMember } from "@/features/leads/actions/get-board-data";
 
-export function LeadFormSheet({ customers, members }: { customers: BoardCustomer[]; members: BoardMember[] }) {
+type ExistingLead = LeadInput & { id: string };
+
+export function LeadFormSheet({
+  customers,
+  members,
+  existing,
+  trigger,
+}: {
+  customers: BoardCustomer[];
+  members: BoardMember[];
+  existing?: ExistingLead;
+  trigger?: React.ReactNode;
+}) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
@@ -37,36 +49,46 @@ export function LeadFormSheet({ customers, members }: { customers: BoardCustomer
     formState: { errors },
   } = useForm<LeadInput>({
     resolver: zodResolver(leadSchema),
-    defaultValues: { customerId: "", stage: "NEW", value: 5000, probability: 20, notes: "", source: "" },
+    defaultValues: existing ?? { customerId: "", stage: "NEW", value: 5000, probability: 20, notes: "", source: "" },
   });
 
   async function onSubmit(data: LeadInput) {
     setSubmitting(true);
-    const result = await createLead(data);
+    const result = existing ? await updateLead(existing.id, data) : await createLead(data);
     setSubmitting(false);
 
     if (!result.ok) {
       toast.error(result.error);
       return;
     }
-    toast.success("Lead created.");
+    toast.success(existing ? "Lead updated." : "Lead created.");
     setOpen(false);
-    reset();
+    if (!existing) reset();
     router.refresh();
   }
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
+    <Sheet
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (next && existing) reset(existing);
+      }}
+    >
       <SheetTrigger asChild>
-        <Button>
-          <Plus />
-          New lead
-        </Button>
+        {trigger ?? (
+          <Button>
+            <Plus />
+            New lead
+          </Button>
+        )}
       </SheetTrigger>
       <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-md">
         <SheetHeader>
-          <SheetTitle>New lead</SheetTitle>
-          <SheetDescription>Add a new opportunity to the pipeline.</SheetDescription>
+          <SheetTitle>{existing ? "Edit lead" : "New lead"}</SheetTitle>
+          <SheetDescription>
+            {existing ? "Update this opportunity." : "Add a new opportunity to the pipeline."}
+          </SheetDescription>
         </SheetHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="mt-4 flex flex-col gap-4 px-1">
@@ -164,7 +186,7 @@ export function LeadFormSheet({ customers, members }: { customers: BoardCustomer
 
           <Button type="submit" disabled={submitting} className="mt-2">
             {submitting && <Loader2 className="animate-spin" />}
-            Create lead
+            {existing ? "Save changes" : "Create lead"}
           </Button>
         </form>
       </SheetContent>

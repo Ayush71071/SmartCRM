@@ -30,7 +30,7 @@ export default async function LeadsPage() {
           </p>
         </div>
       ) : (
-        <KanbanBoardClientOnly initialColumns={columns} />
+        <KanbanBoardClientOnly initialColumns={columns} customers={customers} members={members} />
       )}
     </div>
   );

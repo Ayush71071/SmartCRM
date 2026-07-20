@@ -6,12 +6,28 @@ import { db } from "@/lib/db";
 import { getCurrentMembership } from "@/lib/current-membership";
 import { logActivity } from "@/lib/activity";
 import { canManageRecord, canCreateRecords } from "@/lib/rbac";
+import { verifyMembersInOrg } from "@/lib/tenant-guard";
 import { taskSchema, type TaskInput } from "@/features/tasks/schemas/task-schemas";
 
 export type ActionResult<T = undefined> = { ok: true; data: T } | { ok: false; error: string };
 
 function isOwner(userId: string, task: { assignedToId: string | null; createdById: string }) {
   return task.assignedToId === userId || task.createdById === userId;
+}
+
+/** Verifies client-supplied customerId/assignedToId references actually belong to this org. */
+async function verifyTaskReferences(
+  organizationId: string,
+  data: Pick<TaskInput, "customerId" | "assignedToId">
+): Promise<string | null> {
+  if (data.customerId) {
+    const customer = await db.customer.findFirst({ where: { id: data.customerId, organizationId } });
+    if (!customer) return "Customer not found.";
+  }
+  if (data.assignedToId && !(await verifyMembersInOrg(organizationId, [data.assignedToId]))) {
+    return "Assignee not found.";
+  }
+  return null;
 }
 
 function nextDueDate(from: Date, recurrence: string): Date | null {
@@ -34,6 +50,9 @@ export async function createTask(input: TaskInput): Promise<ActionResult<{ id: s
 
   const parsed = taskSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
+
+  const referenceError = await verifyTaskReferences(membership.organization.id, parsed.data);
+  if (referenceError) return { ok: false, error: referenceError };
 
   const task = await db.task.create({
     data: {
@@ -65,6 +84,9 @@ export async function updateTask(id: string, input: TaskInput): Promise<ActionRe
 
   const parsed = taskSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
+
+  const referenceError = await verifyTaskReferences(membership.organization.id, parsed.data);
+  if (referenceError) return { ok: false, error: referenceError };
 
   await db.task.update({
     where: { id },

@@ -13,11 +13,13 @@ export function DeleteButton({
   confirmMessage,
   redirectTo,
   label = "Delete",
+  size = "sm",
 }: {
   action: () => Promise<ActionResult>;
   confirmMessage: string;
   redirectTo?: string;
   label?: string;
+  size?: "sm" | "icon";
 }) {
   const router = useRouter();
   const [loading, setLoading] = React.useState(false);
@@ -38,8 +40,8 @@ export function DeleteButton({
   }
 
   return (
-    <Button variant="outline" size="sm" onClick={handleClick} disabled={loading}>
-      {loading ? <Loader2 className="animate-spin" /> : <Trash2 />}
+    <Button variant="outline" size={size} className={size === "icon" ? "size-6" : undefined} onClick={handleClick} disabled={loading}>
+      {loading ? <Loader2 className="animate-spin" /> : <Trash2 className={size === "icon" ? "size-3.5" : undefined} />}
       {label}
     </Button>
   );

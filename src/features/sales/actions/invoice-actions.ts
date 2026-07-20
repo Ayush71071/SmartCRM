@@ -1,10 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getCurrentMembership } from "@/lib/current-membership";
 import { canCreateRecords } from "@/lib/rbac";
 import { invoiceSchema, paymentSchema, type InvoiceInput, type PaymentInput } from "@/features/sales/schemas/sales-schemas";
+
+function isUniqueConstraintError(error: unknown): boolean {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
+}
 
 export type ActionResult<T = undefined> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -21,6 +26,13 @@ export async function createInvoice(input: InvoiceInput): Promise<ActionResult<{
   });
   if (!customer) return { ok: false, error: "Customer not found." };
 
+  if (parsed.data.dealId) {
+    const deal = await db.deal.findFirst({
+      where: { id: parsed.data.dealId, organizationId: membership.organization.id },
+    });
+    if (!deal) return { ok: false, error: "Deal not found." };
+  }
+
   const itemsInCents = parsed.data.items.map((item) => ({
     description: item.description,
     quantity: item.quantity,
@@ -30,35 +42,49 @@ export async function createInvoice(input: InvoiceInput): Promise<ActionResult<{
   const tax = Math.round(subtotal * (parsed.data.taxRate / 100));
   const total = subtotal + tax;
 
-  const count = await db.invoice.count({ where: { organizationId: membership.organization.id } });
-  const invoiceNumber = `INV-${1000 + count + 1}`;
+  // Invoice numbers are derived from a count, which two concurrent requests
+  // could read identically before either commits — retrying on the unique
+  // constraint (rather than trusting the count) makes this safe under
+  // concurrency instead of surfacing a raw 500 to the second requester.
+  const MAX_ATTEMPTS = 5;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const count = await db.invoice.count({ where: { organizationId: membership.organization.id } });
+    const invoiceNumber = `INV-${1000 + count + 1 + attempt}`;
 
-  const invoice = await db.invoice.create({
-    data: {
-      organizationId: membership.organization.id,
-      customerId: parsed.data.customerId,
-      dealId: parsed.data.dealId || null,
-      invoiceNumber,
-      dueDate: new Date(parsed.data.dueDate),
-      subtotal,
-      tax,
-      total,
-      notes: parsed.data.notes,
-      createdById: membership.user.id,
-      status: "SENT",
-      items: {
-        create: itemsInCents.map((item) => ({
-          description: item.description,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          total: item.quantity * item.unitPrice,
-        })),
-      },
-    },
-  });
+    try {
+      const invoice = await db.invoice.create({
+        data: {
+          organizationId: membership.organization.id,
+          customerId: parsed.data.customerId,
+          dealId: parsed.data.dealId || null,
+          invoiceNumber,
+          dueDate: new Date(parsed.data.dueDate),
+          subtotal,
+          tax,
+          total,
+          notes: parsed.data.notes,
+          createdById: membership.user.id,
+          status: "SENT",
+          items: {
+            create: itemsInCents.map((item) => ({
+              description: item.description,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              total: item.quantity * item.unitPrice,
+            })),
+          },
+        },
+      });
 
-  revalidatePath("/sales");
-  return { ok: true, data: { id: invoice.id } };
+      revalidatePath("/sales");
+      return { ok: true, data: { id: invoice.id } };
+    } catch (error) {
+      if (isUniqueConstraintError(error) && attempt < MAX_ATTEMPTS - 1) continue;
+      throw error;
+    }
+  }
+
+  return { ok: false, error: "Could not generate a unique invoice number — please try again." };
 }
 
 export async function deleteInvoice(id: string): Promise<ActionResult<undefined>> {

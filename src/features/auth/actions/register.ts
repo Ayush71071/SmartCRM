@@ -6,10 +6,16 @@ import { db } from "@/lib/db";
 import { signIn } from "@/lib/auth";
 import { registerSchema, type RegisterInput } from "@/features/auth/schemas/auth-schemas";
 import { bootstrapOrganizationForUser } from "./bootstrap-organization";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
 export async function registerAction(input: RegisterInput): Promise<ActionResult> {
+  const ip = await getClientIp();
+  if (!checkRateLimit(`register:ip:${ip}`, 10, 60 * 60 * 1000)) {
+    return { ok: false, error: "Too many attempts. Please try again later." };
+  }
+
   const parsed = registerSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };

@@ -5,9 +5,19 @@ import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { STAGE_CONFIG } from "@/features/leads/config/stages";
 import { LeadCard } from "@/features/leads/components/lead-card";
 import { formatMoney } from "@/lib/format";
-import type { BoardLead } from "@/features/leads/actions/get-board-data";
+import type { BoardLead, BoardCustomer, BoardMember } from "@/features/leads/actions/get-board-data";
 
-export function KanbanColumn({ stage, leads }: { stage: string; leads: BoardLead[] }) {
+export function KanbanColumn({
+  stage,
+  leads,
+  customers,
+  members,
+}: {
+  stage: string;
+  leads: BoardLead[];
+  customers: BoardCustomer[];
+  members: BoardMember[];
+}) {
   const { setNodeRef, isOver } = useDroppable({ id: stage });
   const config = STAGE_CONFIG[stage] ?? { label: stage, dot: "bg-muted-foreground" };
   const totalValue = leads.reduce((sum, l) => sum + l.value, 0) / 100;
@@ -30,7 +40,7 @@ export function KanbanColumn({ stage, leads }: { stage: string; leads: BoardLead
       >
         <SortableContext items={leads.map((l) => l.id)} strategy={verticalListSortingStrategy}>
           {leads.map((lead) => (
-            <LeadCard key={lead.id} lead={lead} />
+            <LeadCard key={lead.id} lead={lead} customers={customers} members={members} />
           ))}
         </SortableContext>
       </div>
