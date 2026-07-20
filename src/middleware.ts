@@ -1,5 +1,12 @@
+import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { authConfig } from "@/lib/auth.config";
+
+// Deliberately built from the edge-safe config only (not "@/lib/auth"),
+// which pulls in PrismaAdapter + bcryptjs and pushed the Edge Function
+// bundle past Vercel's 1MB limit. This instance only needs to decode the
+// session JWT for route protection, not the full provider/adapter config.
+const { auth } = NextAuth(authConfig);
 
 const AUTH_ROUTES = ["/login", "/register", "/forgot-password", "/reset-password"];
 

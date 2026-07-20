@@ -7,17 +7,11 @@ import { db } from "@/lib/db";
 import { loginSchema } from "@/features/auth/schemas/auth-schemas";
 import { bootstrapOrganizationForUser } from "@/features/auth/actions/bootstrap-organization";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { authConfig } from "@/lib/auth.config";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  ...authConfig,
   adapter: PrismaAdapter(db),
-  // Credentials sessions can't be persisted through the adapter's session
-  // table (that flow assumes an OAuth account), so the whole app runs on
-  // JWT sessions even though Google sign-in also goes through here.
-  session: { strategy: "jwt" },
-  pages: {
-    signIn: "/login",
-    error: "/login",
-  },
   providers: [
     Google({
       clientId: process.env.AUTH_GOOGLE_ID,
@@ -49,18 +43,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
     }),
   ],
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user?.id) token.userId = user.id;
-      return token;
-    },
-    async session({ session, token }) {
-      if (session.user && token.userId) {
-        session.user.id = token.userId as string;
-      }
-      return session;
-    },
-  },
   events: {
     // Fires once per brand-new user (covers first-time Google sign-in;
     // Credentials sign-up is bootstrapped explicitly in the register action).
