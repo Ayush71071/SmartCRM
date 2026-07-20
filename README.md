@@ -2,7 +2,7 @@
 
 **An AI-powered CRM for small businesses** — customers, pipeline, tasks, meetings and sales in one place, with six AI tools built directly into the workflow instead of bolted on the side.
 
-Live demo: log in and click **"Try the demo — no sign-up needed"** to explore a fully seeded workspace.
+**Live demo: [smartcrm-sooty.vercel.app](https://smartcrm-sooty.vercel.app)** — click **"Try the demo — no sign-up needed"** to explore a fully seeded workspace.
 
 ---
 
